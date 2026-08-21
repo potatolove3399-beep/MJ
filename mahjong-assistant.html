@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>牌桌助手 · 麻將分析</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700;900&family=Noto+Sans+TC:wght@400;500;700&family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#122922; --bg2:#1B3A30; --panel:#F3ECDC; --panel2:#EAE0C8;
+    --ink:#241F18; --ink-soft:#5B5548;
+    --gold:#C9A24B; --gold-deep:#9C7A2E;
+    --red:#B5342A; --safe:#4C7A5E; --caution:#C98A2C; --danger:#B5342A;
+    --line: rgba(36,31,24,0.12);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:radial-gradient(120% 140% at 50% -10%, #1E4235 0%, var(--bg) 55%, #0D1E19 100%);
+    color:var(--panel); font-family:"Noto Sans TC",sans-serif; min-height:100vh; padding-bottom:60px;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:22px 16px 10px;}
+  header{text-align:center; padding:18px 8px 26px; position:relative;}
+  header .eyebrow{font-size:12px; letter-spacing:0.35em; color:var(--gold); font-weight:700;}
+  header h1{
+    font-family:"Noto Serif TC",serif; font-weight:900; font-size:32px; margin:6px 0 8px;
+    color:#F6EFDD; letter-spacing:0.04em;
+  }
+  header p{color:#B9CFC4; font-size:13.5px; line-height:1.7; max-width:520px; margin:0 auto;}
+
+  .card{
+    background:var(--panel); border-radius:16px; padding:16px 16px 18px; margin-bottom:16px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.5);
+  }
+  .card h2{
+    font-family:"Noto Serif TC",serif; font-size:16px; margin:0 0 10px; color:var(--ink);
+    display:flex; align-items:center; gap:8px;
+  }
+  .card h2 .n{
+    font-size:11px; background:var(--ink); color:var(--panel); border-radius:99px; padding:2px 8px;
+    font-family:"Noto Sans TC",sans-serif; font-weight:700;
+  }
+  .segmented{display:flex; gap:6px; margin-bottom:12px;}
+  .segmented button{
+    flex:1; padding:9px 6px; border-radius:9px; border:1px solid var(--line); background:#fff;
+    font-size:13px; font-weight:700; color:var(--ink-soft); cursor:pointer; transition:.15s;
+  }
+  .segmented button.active{background:var(--ink); color:var(--panel); border-color:var(--ink);}
+
+  .suit-row{margin-bottom:8px;}
+  .suit-label{font-size:11px; color:var(--ink-soft); font-weight:700; margin:6px 2px 4px;}
+  .tile-grid{display:grid; grid-template-columns:repeat(9,1fr); gap:5px;}
+  .tile-grid.honors{grid-template-columns:repeat(7,1fr);}
+
+  .tile{
+    aspect-ratio:3/4; border-radius:14px; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    cursor:pointer; user-select:none; border:2px solid rgba(255,255,255,0.7); position:relative;
+    box-shadow:0 3px 0 rgba(0,0,0,0.10), 0 5px 10px rgba(0,0,0,0.12); transition:transform .12s ease;
+  }
+  .tile:active{transform:scale(0.92) translateY(2px);}
+  .tile.suit-m{background:linear-gradient(160deg,#FFE3EE,#FFC0DA);}
+  .tile.suit-p{background:linear-gradient(160deg,#DFF0FF,#BADCFF);}
+  .tile.suit-s{background:linear-gradient(160deg,#E2F8E7,#C0EFCE);}
+  .tile.suit-z{background:linear-gradient(160deg,#F1E7FF,#DDCBFF);}
+  .tile.suit-f{background:linear-gradient(160deg,#FFF3D6,#FFE29E); position:relative;}
+  .tile.suit-f .num{color:#B5791A; font-size:18px;}
+  .tile.suit-f .stag{color:#B5791A;}
+  .tile.suit-f.picked{outline:3px solid var(--red); outline-offset:-3px;}
+  .tile .num{font-family:'ZCOOL KuaiLe',sans-serif; font-size:20px; line-height:1; font-weight:400;}
+  .tile .stag{font-family:'ZCOOL KuaiLe',sans-serif; font-size:10px; opacity:.7; margin-top:2px;}
+  .tile.suit-m .num,.tile.suit-m .stag{color:#C43D72;}
+  .tile.suit-p .num,.tile.suit-p .stag{color:#2E7BC4;}
+  .tile.suit-s .num,.tile.suit-s .stag{color:#2E8F5C;}
+  .tile.suit-z .num{color:#7550C9; font-size:18px;}
+  .tile .cnt{position:absolute; bottom:-6px; right:-4px; background:var(--red); color:#fff; font-size:10px;
+    font-weight:700; border-radius:99px; min-width:16px; height:16px; display:flex; align-items:center; justify-content:center; padding:0 3px;}
+  .tile.sm .num{font-size:14px;} .tile.sm .stag{font-size:8px; margin-top:0;}
+  @keyframes pop{0%{transform:scale(0.65);}55%{transform:scale(1.15);}100%{transform:scale(1);}}
+  .tile.added{animation:pop .28s ease;}
+
+  .tray{min-height:54px; background:#fff; border:1px dashed var(--line); border-radius:10px; padding:8px;
+    display:flex; flex-wrap:wrap; gap:6px; align-items:flex-start;}
+  .tray .tile{width:38px;}
+  .tray .empty{color:#9C9484; font-size:12.5px; padding:6px 4px;}
+  .tray-foot{display:flex; justify-content:space-between; align-items:center; margin-top:8px; font-size:12px; color:var(--ink-soft);}
+  .tray-foot button{background:none; border:none; color:var(--red); font-size:12px; font-weight:700; cursor:pointer;}
+
+  .hu-settings{display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:12px; font-size:12.5px; color:var(--ink-soft);}
+  .hu-settings .segmented{margin-bottom:0; flex:1; min-width:150px;}
+  .hu-settings select, .hu-settings input[type="number"]{border:1px solid var(--line); border-radius:8px; padding:6px 8px; font-size:12.5px; background:#fff; color:var(--ink);}
+  .hu-panel .points{font-size:15px; color:var(--ink-soft); margin-top:2px;}
+  .hu-panel .points b{color:var(--ink); font-size:19px;}
+  .hu-settings label{display:flex; align-items:center; gap:4px;}
+
+  .analyze-btn{
+    display:block; width:100%; padding:14px; border:none; border-radius:12px; margin-top:6px;
+    background:linear-gradient(180deg,var(--gold),var(--gold-deep)); color:#26200F; font-weight:900; font-size:15px;
+    font-family:"Noto Serif TC",serif; letter-spacing:0.06em; cursor:pointer; box-shadow:0 8px 18px rgba(0,0,0,0.35);
+  }
+  .analyze-btn:active{transform:translateY(1px);}
+
+  .result-head{display:flex; align-items:baseline; gap:10px; margin-bottom:4px;}
+  .result-head .big{font-family:"Noto Serif TC",serif; font-size:28px; font-weight:900; color:var(--ink);}
+  .result-head .sub{font-size:13px; color:var(--ink-soft);}
+  .rec-line{font-size:13.5px; line-height:1.8; color:var(--ink); background:var(--panel2); border-radius:10px; padding:10px 12px; margin:10px 0 14px;}
+  .rec-line b{color:var(--red);}
+
+  .cand{display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px solid var(--line);}
+  .cand:last-child{border-bottom:none;}
+  .cand .rank{font-family:"Noto Serif TC",serif; font-weight:900; color:var(--gold-deep); width:18px; text-align:center;}
+  .cand .tile{width:34px; cursor:default;}
+  .cand .info{flex:1; font-size:12.5px; color:var(--ink-soft); line-height:1.5;}
+  .cand .info b{color:var(--ink); font-size:13.5px;}
+  .badge{font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:99px; white-space:nowrap;}
+  .badge.safe{background:rgba(76,122,94,0.15); color:var(--safe);}
+  .badge.caution{background:rgba(201,138,44,0.15); color:var(--caution);}
+  .badge.danger{background:rgba(181,52,42,0.15); color:var(--danger);}
+
+  .safety-list{display:flex; flex-direction:column; gap:6px;}
+  .safety-row{display:flex; align-items:center; gap:10px; font-size:12.5px; color:var(--ink-soft);}
+  .safety-row .tile{width:30px; cursor:default;}
+  .safety-row .reason{flex:1;}
+
+  .hu-panel{text-align:center; padding:10px 6px 4px;}
+  .hu-panel .emoji{font-size:40px;}
+  .hu-panel .total{font-family:"Noto Serif TC",serif; font-size:40px; font-weight:900; color:var(--red); margin:6px 0 2px;}
+  .hu-panel .total span{font-size:16px; color:var(--ink-soft); font-weight:700;}
+  .tai-list{display:flex; flex-direction:column; gap:0; margin-top:14px; border-top:1px solid var(--line);}
+  .tai-row{display:flex; justify-content:space-between; padding:8px 4px; border-bottom:1px solid var(--line); font-size:13.5px; color:var(--ink);}
+  .tai-row b{color:var(--gold-deep);}
+
+  footer{text-align:center; color:#7E9488; font-size:11px; padding:20px 10px 4px;}
+
+  .tai-tab{
+    position:fixed; top:50%; right:0; transform:translateY(-50%); writing-mode:vertical-rl;
+    background:linear-gradient(180deg,var(--gold),var(--gold-deep)); color:#26200F; border:none;
+    padding:16px 8px; border-radius:10px 0 0 10px; font-family:"Noto Serif TC",serif; font-weight:700;
+    font-size:13px; letter-spacing:.15em; cursor:pointer; box-shadow:-4px 0 12px rgba(0,0,0,.3); z-index:40;
+  }
+  .tai-overlay{position:fixed; inset:0; background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .2s ease; z-index:45;}
+  .tai-overlay.open{opacity:1; pointer-events:auto;}
+  .tai-panel{
+    position:fixed; top:0; right:0; height:100%; width:86vw; max-width:340px; background:var(--panel);
+    box-shadow:-10px 0 30px rgba(0,0,0,.35); transform:translateX(100%); transition:transform .25s ease;
+    z-index:50; padding:18px 16px; overflow-y:auto;
+  }
+  .tai-panel.open{transform:translateX(0);}
+  .tai-panel-head{display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;
+    font-family:"Noto Serif TC",serif; font-size:17px; font-weight:900; color:var(--ink);}
+  .tai-panel-head button{background:none; border:none; font-size:20px; color:var(--ink-soft); cursor:pointer; line-height:1;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">牌 桌 助 手</div>
+    <h1>麻將出牌分析</h1>
+    <p>點選手牌與桌面已出現的牌，系統計算聽牌進度、建議打哪張效率最高、放槍風險，胡牌時還會幫你算台數。</p>
+  </header>
+
+  <div class="card">
+    <h2><span class="n">1</span> 選擇要加入的區域</h2>
+    <div class="segmented">
+      <button class="active" data-target="hand">加入我的手牌</button>
+      <button data-target="discard">加入桌面已出現的牌</button>
+    </div>
+
+    <div class="suit-row"><div class="suit-label">萬 Man</div><div class="tile-grid" id="grid-m"></div></div>
+    <div class="suit-row"><div class="suit-label">筒 Pin</div><div class="tile-grid" id="grid-p"></div></div>
+    <div class="suit-row"><div class="suit-label">索 Sou</div><div class="tile-grid" id="grid-s"></div></div>
+    <div class="suit-row"><div class="suit-label">字牌 Honors</div><div class="tile-grid honors" id="grid-z"></div></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span> 我的手牌 <span id="handCount" style="font-weight:400;color:var(--ink-soft);font-size:12px;"></span></h2>
+    <div class="tray" id="handTray"><div class="empty">尚未加入手牌，點上方牌張加入</div></div>
+    <div class="tray-foot"><span>點手牌中的牌可移除</span><button id="clearHand">清空手牌</button></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span> 桌面已出現的牌（棄牌 / 副露）</h2>
+    <div class="tray" id="discardTray"><div class="empty">尚未加入，點上方牌張加入</div></div>
+    <div class="tray-foot"><span>用於計算安全牌與剩餘張數</span><button id="clearDiscard">清空</button></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">4</span> 計胡設定</h2>
+    <div class="hu-settings">
+      <div class="segmented">
+        <button class="active" data-hu="0">食胡（吃別家棄牌）</button>
+        <button data-hu="1">自摸</button>
+      </div>
+      <label>圈風
+        <select id="roundWind"><option value="1">東</option><option value="2">南</option><option value="3">西</option><option value="4">北</option></select>
+      </label>
+      <label>門風
+        <select id="seatWind"><option value="1">東</option><option value="2">南</option><option value="3">西</option><option value="4">北</option></select>
+      </label>
+      <label>底分
+        <input type="number" id="basePoints" value="20" min="0" style="width:60px;">
+      </label>
+      <label>每台點數
+        <input type="number" id="pointsPerTai" value="10" min="0" style="width:60px;">
+      </label>
+      <label>莊家胡牌
+        <input type="checkbox" id="isDealer">
+      </label>
+      <label>已連莊幾次
+        <input type="number" id="lianZhuang" value="0" min="0" style="width:50px;">
+      </label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>花牌（選擇本局補到的花）</h2>
+    <div class="tile-grid honors" id="grid-f"></div>
+  </div>
+
+  <button id="taiTableTab" class="tai-tab">台數表</button>
+  <div id="taiOverlay" class="tai-overlay"></div>
+  <aside id="taiPanel" class="tai-panel">
+    <div class="tai-panel-head"><span>胡牌台數表</span><button id="closeTai">✕</button></div>
+    <div class="tai-list">
+      <div class="tai-row"><span>平胡（全順子、非自摸、無字對）</span><b>2 台</b></div>
+      <div class="tai-row"><span>對對胡（全刻子）</span><b>4 台</b></div>
+      <div class="tai-row"><span>七對</span><b>4 台</b></div>
+      <div class="tai-row"><span>混一色</span><b>4 台</b></div>
+      <div class="tai-row"><span>清一色</span><b>8 台</b></div>
+      <div class="tai-row"><span>字一色</span><b>16 台</b></div>
+      <div class="tai-row"><span>斷么九</span><b>1 台</b></div>
+      <div class="tai-row"><span>三元牌刻（中／發／白，各）</span><b>1 台</b></div>
+      <div class="tai-row"><span>小三元</span><b>4 台</b></div>
+      <div class="tai-row"><span>大三元</span><b>8 台</b></div>
+      <div class="tai-row"><span>圈風刻／門風刻（各）</span><b>1 台</b></div>
+      <div class="tai-row"><span>小四喜</span><b>8 台</b></div>
+      <div class="tai-row"><span>大四喜</span><b>16 台</b></div>
+      <div class="tai-row"><span>五門齊</span><b>1 台</b></div>
+      <div class="tai-row"><span>自摸</span><b>1 台</b></div>
+      <div class="tai-row"><span>花牌（僅算正花，需對應門風）</span><b>每張 1 台</b></div>
+      <div class="tai-row"><span>花槓（春夏秋冬 或 梅蘭竹菊 全收）</span><b>1 台</b></div>
+      <div class="tai-row"><span>莊家（連N拉N，2N+1台）</span><b>2N+1 台</b></div>
+    </div>
+  </aside>
+
+  <button class="analyze-btn" id="analyzeBtn">分 析 出 牌</button>
+
+  <div class="card" id="resultCard" style="display:none;">
+    <h2><span class="n">5</span> 分析結果</h2>
+    <div id="resultBody"></div>
+  </div>
+
+  <footer>啟發式安全評估（現物／見3張／筋牌）與台數計算採常見台灣麻將簡化規則，僅供參考。</footer>
+</div>
+
+<script>
+const HONOR_LABEL = ['東','南','西','北','中','發','白'];
+const FLOWER_LABEL = ['春','夏','秋','冬','梅','蘭','竹','菊'];
+const FLOWER_SEAT = {'春':1,'梅':1,'夏':2,'蘭':2,'秋':3,'菊':3,'冬':4,'竹':4};
+const WIND_CHAR = ['東','南','西','北'];
+
+function idToIndex(id){
+  const suit=id[0], n=parseInt(id.slice(1));
+  if(suit==='m') return n-1;
+  if(suit==='p') return 9+n-1;
+  if(suit==='s') return 18+n-1;
+  return 27+n-1;
+}
+function tileLabel(id){
+  const suit=id[0], n=parseInt(id.slice(1));
+  if(suit==='z') return HONOR_LABEL[n-1];
+  const map={m:'萬',p:'筒',s:'索'};
+  return n+map[suit];
+}
+function tileFaceHTML(id){
+  const suit=id[0], n=parseInt(id.slice(1));
+  if(suit==='z') return '<span class="num">'+HONOR_LABEL[n-1]+'</span>';
+  const map={m:'萬',p:'筒',s:'索'};
+  return '<span class="num">'+n+'</span><span class="stag">'+map[suit]+'</span>';
+}
+
+// ---------- shanten engine (progress toward 4 melds + 1 pair) ----------
+function decomposeSuit(counts){
+  const memo = new Map();
+  function solve(c){
+    const key = c.join(',');
+    if(memo.has(key)) return memo.get(key);
+    let pos=0; while(pos<9 && c[pos]===0) pos++;
+    if(pos===9){ const r=[{melds:0,taatsu:0}]; memo.set(key,r); return r; }
+    const sets=[];
+    if(c[pos]>=3){ const c2=c.slice(); c2[pos]-=3; sets.push(solve(c2).map(r=>({melds:r.melds+1,taatsu:r.taatsu}))); }
+    if(pos<=6 && c[pos]>0 && c[pos+1]>0 && c[pos+2]>0){ const c2=c.slice(); c2[pos]--;c2[pos+1]--;c2[pos+2]--; sets.push(solve(c2).map(r=>({melds:r.melds+1,taatsu:r.taatsu}))); }
+    if(c[pos]>=2){ const c2=c.slice(); c2[pos]-=2; sets.push(solve(c2).map(r=>({melds:r.melds,taatsu:r.taatsu+1}))); }
+    if(pos<=7 && c[pos]>0 && c[pos+1]>0){ const c2=c.slice(); c2[pos]--;c2[pos+1]--; sets.push(solve(c2).map(r=>({melds:r.melds,taatsu:r.taatsu+1}))); }
+    if(pos<=6 && c[pos]>0 && c[pos+2]>0){ const c2=c.slice(); c2[pos]--;c2[pos+2]--; sets.push(solve(c2).map(r=>({melds:r.melds,taatsu:r.taatsu+1}))); }
+    { const c2=c.slice(); c2[pos]--; sets.push(solve(c2)); }
+    let all=[]; for(const s of sets) all=all.concat(s);
+    const seen=new Set(); const uniq=[];
+    for(const r of all){ const k=r.melds+'_'+r.taatsu; if(!seen.has(k)){seen.add(k); uniq.push(r);} }
+    const pruned = uniq.filter(a=>!uniq.some(b=>b!==a && b.melds>=a.melds && b.taatsu>=a.taatsu && (b.melds>a.melds||b.taatsu>a.taatsu)));
+    memo.set(key,pruned);
+    return pruned;
+  }
+  return solve(counts.slice());
+}
+function decomposeHonors(counts7){
+  let combos=[{melds:0,taatsu:0}];
+  for(let i=0;i<7;i++){
+    const c=counts7[i];
+    const opts=[{dm:0,dt:0}];
+    if(c>=3) opts.push({dm:1,dt:0});
+    if(c>=2) opts.push({dm:0,dt:1});
+    const next=[];
+    for(const base of combos) for(const o of opts) next.push({melds:base.melds+o.dm, taatsu:base.taatsu+o.dt});
+    const seen=new Set(); const uniq=[];
+    for(const r of next){ const k=r.melds+'_'+r.taatsu; if(!seen.has(k)){seen.add(k); uniq.push(r);} }
+    combos = uniq.filter(a=>!uniq.some(b=>b!==a && b.melds>=a.melds && b.taatsu>=a.taatsu && (b.melds>a.melds||b.taatsu>a.taatsu)));
+  }
+  return combos;
+}
+function calcShanten(counts34){
+  let best = Infinity;
+  function tryPair(rc, pairBonus){
+    const m=rc.slice(0,9), p=rc.slice(9,18), s=rc.slice(18,27), z=rc.slice(27,34);
+    const dm=decomposeSuit(m), dp=decomposeSuit(p), ds=decomposeSuit(s), dz=decomposeHonors(z);
+    for(const a of dm) for(const b of dp) for(const cc of ds) for(const d of dz){
+      const melds=a.melds+b.melds+cc.melds+d.melds;
+      const taatsu=a.taatsu+b.taatsu+cc.taatsu+d.taatsu;
+      const cap=Math.max(0,4-melds);
+      const used=Math.min(taatsu,cap);
+      const sh = 8-2*melds-used-pairBonus;
+      if(sh<best) best=sh;
+    }
+  }
+  tryPair(counts34,0);
+  for(let t=0;t<34;t++){
+    if(counts34[t]>=2){ const c2=counts34.slice(); c2[t]-=2; tryPair(c2,1); }
+  }
+  return best;
+}
+function analyzeHand(handIds, discardIds){
+  const handCounts=new Array(34).fill(0); handIds.forEach(id=>handCounts[idToIndex(id)]++);
+  const discardCounts=new Array(34).fill(0); discardIds.forEach(id=>discardCounts[idToIndex(id)]++);
+  const baseShanten = calcShanten(handCounts);
+  const uniqueTypes=[...new Set(handIds)];
+  const candidates = uniqueTypes.map(id=>{
+    const idx=idToIndex(id);
+    const after=handCounts.slice(); after[idx]--;
+    const sh=calcShanten(after);
+    let ukeireCount=0; const ukeireTypes=[];
+    for(let t=0;t<34;t++){
+      const visible=after[t]+discardCounts[t];
+      const remain=4-visible;
+      if(remain<=0) continue;
+      const test=after.slice(); test[t]++;
+      if(calcShanten(test) < sh){ ukeireTypes.push(t); ukeireCount+=remain; }
+    }
+    return {id, idx, shanten:sh, ukeireCount, ukeireTypes};
+  });
+  candidates.sort((a,b)=> a.shanten-b.shanten || b.ukeireCount-a.ukeireCount);
+  return {baseShanten, candidates, handCounts, discardCounts};
+}
+function dangerRating(id, handCounts, discardCounts){
+  const idx=idToIndex(id), suit=id[0], n=parseInt(id.slice(1));
+  if(discardCounts[idx]>0) return {level:'safe', reason:'現物：已被打出，相對安全'};
+  const totalVisible = handCounts[idx]+discardCounts[idx];
+  if(totalVisible>=3) return {level:'safe', reason:'已見3張以上，剩餘極少'};
+  if(suit==='z'){
+    if(totalVisible===2) return {level:'caution', reason:'字牌已見2張，風險降低'};
+    return {level:'caution', reason:'字牌，留意是否為他家等待的對子'};
+  }
+  let sujiOK=false;
+  if(n-3>=1 && discardCounts[idToIndex(suit+(n-3))]>0) sujiOK=true;
+  if(n+3<=9 && discardCounts[idToIndex(suit+(n+3))]>0) sujiOK=true;
+  if(sujiOK) return {level:'caution', reason:'筋牌，兩面聽風險降低（非絕對安全）'};
+  if(n===1||n===9) return {level:'caution', reason:'邊張，風險中等偏低'};
+  return {level:'danger', reason:'中張牌，尚無安全依據，放槍風險較高'};
+}
+function shantenLabel(sh){ return sh<=0 ? '聽牌' : sh+' 向聽'; }
+
+// ---------- winning-hand full decomposition + tai (台數) ----------
+function fullDecomposeSuit(counts){
+  const memo=new Map();
+  function solve(c){
+    const key=c.join(',');
+    if(memo.has(key)) return memo.get(key);
+    let pos=0; while(pos<9 && c[pos]===0) pos++;
+    if(pos===9){ const r=[[]]; memo.set(key,r); return r; }
+    let out=[];
+    if(c[pos]>=3){
+      const c2=c.slice(); c2[pos]-=3;
+      for(const s of solve(c2)) out.push([{type:'trip',num:pos+1}, ...s]);
+    }
+    if(pos<=6 && c[pos]>0 && c[pos+1]>0 && c[pos+2]>0){
+      const c2=c.slice(); c2[pos]--; c2[pos+1]--; c2[pos+2]--;
+      for(const s of solve(c2)) out.push([{type:'seq',num:pos+1}, ...s]);
+    }
+    memo.set(key,out);
+    return out;
+  }
+  return solve(counts.slice());
+}
+function fullDecomposeHonors(counts7){
+  const trips=[];
+  for(let i=0;i<7;i++){
+    const c=counts7[i];
+    if(c===0) continue;
+    if(c===3){ trips.push({type:'trip', suit:'z', num:i+1}); continue; }
+    return null;
+  }
+  return trips;
+}
+function findWinningDecompositions(handCounts){
+  const total = handCounts.reduce((a,b)=>a+b,0);
+  const results=[];
+  for(let t=0;t<34;t++){
+    if(handCounts[t]>=2){
+      const rc=handCounts.slice(); rc[t]-=2;
+      const m=rc.slice(0,9), p=rc.slice(9,18), s=rc.slice(18,27), z=rc.slice(27,34);
+      const dm=fullDecomposeSuit(m), dp=fullDecomposeSuit(p), ds=fullDecomposeSuit(s);
+      const honorTrips=fullDecomposeHonors(z);
+      if(honorTrips===null) continue;
+      if(dm.length===0 && m.some(x=>x>0)) continue;
+      if(dp.length===0 && p.some(x=>x>0)) continue;
+      if(ds.length===0 && s.some(x=>x>0)) continue;
+      const dmList = dm.length? dm : [[]];
+      const dpList = dp.length? dp : [[]];
+      const dsList = ds.length? ds : [[]];
+      for(const a of dmList) for(const b of dpList) for(const c of dsList){
+        const melds=[
+          ...a.map(x=>({...x, suit:'m'})),
+          ...b.map(x=>({...x, suit:'p'})),
+          ...c.map(x=>({...x, suit:'s'})),
+          ...honorTrips
+        ];
+        const pairSuit = t<9?'m':t<18?'p':t<27?'s':'z';
+        const pairNum = t<9?t+1:t<18?t-9+1:t<27?t-18+1:t-27+1;
+        results.push({melds, pair:{suit:pairSuit, num:pairNum}});
+      }
+    }
+  }
+  if(total===14){
+    let ok=true; const pairs=[];
+    for(let t=0;t<34;t++){
+      if(handCounts[t]===2) pairs.push(t);
+      else if(handCounts[t]!==0) ok=false;
+    }
+    if(ok && pairs.length===7) results.push({sevenPairs:true, pairs});
+  }
+  return results;
+}
+function dragonName(n){ return {5:'中',6:'發',7:'白'}[n]; }
+function computeTai(decomp, options){
+  const tai=[]; let total=0;
+  let blocks;
+  if(decomp.sevenPairs){
+    tai.push({name:'七對',val:4}); total+=4;
+    blocks = decomp.pairs.map(idx=>{
+      const suit = idx<9?'m':idx<18?'p':idx<27?'s':'z';
+      const num = idx<9?idx+1:idx<18?idx-9+1:idx<27?idx-18+1:idx-27+1;
+      return {type:'pair', suit, num};
+    });
+  } else {
+    blocks = [...decomp.melds, {type:'pair', suit:decomp.pair.suit, num:decomp.pair.num}];
+    const nonPair = decomp.melds;
+    if(nonPair.length>0 && nonPair.every(b=>b.type==='seq') && decomp.pair.suit!=='z' && !options.selfDraw){ tai.push({name:'平胡',val:2}); total+=2; }
+    if(nonPair.length>0 && nonPair.every(b=>b.type==='trip')){ tai.push({name:'對對胡',val:4}); total+=4; }
+    const dragonTrips = nonPair.filter(b=>b.type==='trip' && b.suit==='z' && b.num>=5);
+    const dragonPair = decomp.pair.suit==='z' && decomp.pair.num>=5;
+    if(dragonTrips.length===3){ tai.push({name:'大三元',val:8}); total+=8; }
+    else if(dragonTrips.length===2 && dragonPair){ tai.push({name:'小三元',val:4}); total+=4; }
+    else { dragonTrips.forEach(d=>{ tai.push({name:dragonName(d.num)+'刻',val:1}); total+=1; }); }
+    const windTrips = nonPair.filter(b=>b.type==='trip' && b.suit==='z' && b.num<=4);
+    const windPair = decomp.pair.suit==='z' && decomp.pair.num<=4;
+    if(windTrips.length===4){ tai.push({name:'大四喜',val:16}); total+=16; }
+    else if(windTrips.length===3 && windPair){ tai.push({name:'小四喜',val:8}); total+=8; }
+    else {
+      windTrips.forEach(w=>{
+        if(w.num===options.roundWind){ tai.push({name:'圈風刻',val:1}); total+=1; }
+        if(w.num===options.seatWind){ tai.push({name:'門風刻',val:1}); total+=1; }
+      });
+    }
+  }
+  const suitSet=new Set(); let hasHonor=false;
+  blocks.forEach(b=>{ if(b.suit==='z') hasHonor=true; else suitSet.add(b.suit); });
+  if(suitSet.size===0 && hasHonor){ tai.push({name:'字一色',val:16}); total+=16; }
+  else if(suitSet.size===1 && hasHonor){ tai.push({name:'混一色',val:4}); total+=4; }
+  else if(suitSet.size===1 && !hasHonor){ tai.push({name:'清一色',val:8}); total+=8; }
+
+  const isBroken = blocks.every(b=>{
+    if(b.suit==='z') return false;
+    if(b.type==='seq') return b.num!==1 && b.num!==7;
+    return b.num!==1 && b.num!==9;
+  });
+  if(isBroken){ tai.push({name:'斷么九',val:1}); total+=1; }
+
+  const cats=new Set();
+  blocks.forEach(b=>{ if(b.suit==='z') cats.add(b.num<=4?'wind':'dragon'); else cats.add(b.suit); });
+  if(cats.size===5){ tai.push({name:'五門齊',val:1}); total+=1; }
+
+  if(options.selfDraw){ tai.push({name:'自摸',val:1}); total+=1; }
+  if(options.isDealer){
+    const n = options.lianZhuang||0;
+    const val = 2*n+1;
+    tai.push({name: n>0 ? '莊家連'+n+'拉'+n : '莊家', val}); total+=val;
+  }
+  const flowers = options.flowers || [];
+  const matchingFlowers = flowers.filter(f=>FLOWER_SEAT[f]===options.seatWind);
+  if(matchingFlowers.length>0){ tai.push({name:'花牌×'+matchingFlowers.length+'（正花，對應門風）', val:matchingFlowers.length}); total+=matchingFlowers.length; }
+  const set1=['春','夏','秋','冬'], set2=['梅','蘭','竹','菊'];
+  if(set1.every(f=>flowers.includes(f))){ tai.push({name:'花槓（春夏秋冬）',val:1}); total+=1; }
+  if(set2.every(f=>flowers.includes(f))){ tai.push({name:'花槓（梅蘭竹菊）',val:1}); total+=1; }
+
+  return {tai, total};
+}
+
+// ---------- state & UI ----------
+let target = 'hand';
+let hand = [];
+let discard = [];
+let huOptions = {selfDraw:false, roundWind:1, seatWind:1, basePoints:20, pointsPerTai:10, isDealer:false, lianZhuang:0};
+let selectedFlowers = new Set();
+
+function buildGrids(){
+  const suits = [['m','萬'],['p','筒'],['s','索']];
+  suits.forEach(([suit])=>{
+    const grid=document.getElementById('grid-'+suit);
+    for(let n=1;n<=9;n++){
+      const id=suit+n;
+      const el=document.createElement('div');
+      el.className='tile suit-'+suit; el.dataset.id=id;
+      el.innerHTML=tileFaceHTML(id);
+      el.addEventListener('click', ()=> addTile(id));
+      grid.appendChild(el);
+    }
+  });
+  const gz=document.getElementById('grid-z');
+  for(let n=1;n<=7;n++){
+    const id='z'+n;
+    const el=document.createElement('div');
+    el.className='tile suit-z'; el.dataset.id=id;
+    el.innerHTML=tileFaceHTML(id);
+    el.addEventListener('click', ()=> addTile(id));
+    gz.appendChild(el);
+  }
+  const gf=document.getElementById('grid-f');
+  FLOWER_LABEL.forEach(label=>{
+    const el=document.createElement('div');
+    el.className='tile suit-f';
+    el.innerHTML='<span class="num">'+label+'</span><span class="stag">'+WIND_CHAR[FLOWER_SEAT[label]-1]+'花</span>';
+    el.addEventListener('click', ()=>{
+      if(selectedFlowers.has(label)) selectedFlowers.delete(label);
+      else selectedFlowers.add(label);
+      el.classList.toggle('picked');
+    });
+    gf.appendChild(el);
+  });
+}
+function addTile(id){
+  if(target==='hand'){
+    if(hand.length>=17) return;
+    hand.push(id);
+  } else {
+    discard.push(id);
+  }
+  render();
+}
+function removeFromHand(i){ hand.splice(i,1); render(); }
+function removeFromDiscard(i){ discard.splice(i,1); render(); }
+
+function makeTileEl(id, sm, onClick){
+  const suit=id[0];
+  const t=document.createElement('div');
+  t.className='tile suit-'+suit+(sm?' sm':'')+' added';
+  t.title=tileLabel(id);
+  t.innerHTML=tileFaceHTML(id);
+  if(onClick) t.addEventListener('click', onClick);
+  else t.style.cursor='default';
+  return t;
+}
+function renderTray(el, arr, removeFn){
+  el.innerHTML='';
+  if(arr.length===0){ el.innerHTML='<div class="empty">尚未加入，點上方牌張加入</div>'; return; }
+  arr.forEach((id,i)=> el.appendChild(makeTileEl(id, true, ()=>removeFn(i))));
+}
+function render(){
+  renderTray(document.getElementById('handTray'), hand, removeFromHand);
+  renderTray(document.getElementById('discardTray'), discard, removeFromDiscard);
+  document.getElementById('handCount').textContent = hand.length ? ('（'+hand.length+' 張）') : '';
+}
+
+document.querySelectorAll('.segmented button[data-target]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.segmented button[data-target]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); target=btn.dataset.target;
+  });
+});
+document.querySelectorAll('.segmented button[data-hu]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.segmented button[data-hu]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active'); huOptions.selfDraw = btn.dataset.hu==='1';
+  });
+});
+document.getElementById('roundWind').addEventListener('change', e=> huOptions.roundWind = parseInt(e.target.value));
+document.getElementById('seatWind').addEventListener('change', e=> huOptions.seatWind = parseInt(e.target.value));
+document.getElementById('basePoints').addEventListener('input', e=> huOptions.basePoints = parseInt(e.target.value)||0);
+document.getElementById('pointsPerTai').addEventListener('input', e=> huOptions.pointsPerTai = parseInt(e.target.value)||0);
+document.getElementById('isDealer').addEventListener('change', e=> huOptions.isDealer = e.target.checked);
+document.getElementById('lianZhuang').addEventListener('input', e=> huOptions.lianZhuang = parseInt(e.target.value)||0);
+
+function openTaiPanel(){ document.getElementById('taiPanel').classList.add('open'); document.getElementById('taiOverlay').classList.add('open'); }
+function closeTaiPanel(){ document.getElementById('taiPanel').classList.remove('open'); document.getElementById('taiOverlay').classList.remove('open'); }
+document.getElementById('taiTableTab').addEventListener('click', openTaiPanel);
+document.getElementById('closeTai').addEventListener('click', closeTaiPanel);
+document.getElementById('taiOverlay').addEventListener('click', closeTaiPanel);
+document.getElementById('clearHand').addEventListener('click', ()=>{ hand=[]; render(); });
+document.getElementById('clearDiscard').addEventListener('click', ()=>{ discard=[]; render(); });
+
+document.getElementById('analyzeBtn').addEventListener('click', ()=>{
+  if(hand.length<5){ alert('手牌太少，至少加入幾張牌再分析（建議 13～17 張）。'); return; }
+  const {baseShanten, candidates, handCounts, discardCounts} = analyzeHand(hand, discard);
+  const resultCard = document.getElementById('resultCard');
+  const body = document.getElementById('resultBody');
+  resultCard.style.display='block';
+
+  const decomps = baseShanten<=-1 ? findWinningDecompositions(handCounts) : [];
+  let html = '';
+
+  if(decomps.length>0){
+    let bestTai=null;
+    decomps.forEach(d=>{ const r=computeTai(d, {...huOptions, flowers:[...selectedFlowers]}); if(!bestTai || r.total>bestTai.total) bestTai=r; });
+    const points = huOptions.basePoints + bestTai.total*huOptions.pointsPerTai;
+    html += '<div class="hu-panel"><div class="emoji">🎉</div><div class="total">'+bestTai.total+'<span> 台</span></div>';
+    html += '<div class="points">'+huOptions.basePoints+' 底 + '+bestTai.total+' 台 × '+huOptions.pointsPerTai+' 點 = <b>'+points+' 點</b></div>';
+    html += '<div class="tai-list">';
+    bestTai.tai.forEach(t=>{ html += '<div class="tai-row"><span>'+t.name+'</span><b>+'+t.val+'</b></div>'; });
+    html += '</div></div>';
+  } else {
+    html += '<div class="result-head"><div class="big">'+shantenLabel(Math.max(baseShanten,0))+'</div><div class="sub">目前手牌狀態</div></div>';
+    const top = candidates.slice(0,3);
+    const best = top[0];
+    const bestDanger = best ? dangerRating(best.id, handCounts, discardCounts) : null;
+    let altSafe = null;
+    if(best && bestDanger.level==='danger'){
+      altSafe = candidates.find(c => c.shanten <= best.shanten+1 && dangerRating(c.id,handCounts,discardCounts).level==='safe');
+    }
+    if(best){
+      let recText = '效率最佳：打 <b>'+tileLabel(best.id)+'</b>（打出後 '+shantenLabel(Math.max(best.shanten,0))+'，進張 '+best.ukeireCount+' 張／'+best.ukeireTypes.length+' 種）。';
+      if(bestDanger.level==='danger' && altSafe){
+        recText += '<br>不過此牌風險偏高（'+bestDanger.reason+'）。若求穩，可改打 <b>'+tileLabel(altSafe.id)+'</b>（'+shantenLabel(Math.max(altSafe.shanten,0))+'，進張 '+altSafe.ukeireCount+' 張，風險較低）。';
+      } else if(bestDanger.level==='danger'){
+        recText += '<br>此牌風險偏高（'+bestDanger.reason+'），目前找不到更安全又同樣有效率的替代牌，出牌前請再確認各家牌河。';
+      } else {
+        recText += '安全度：'+ (bestDanger.level==='safe'?'較安全':'普通') +'（'+bestDanger.reason+'）。';
+      }
+      html += '<div class="rec-line">'+recText+'</div>';
+    }
+    html += '<div style="margin:14px 0 6px;font-weight:700;font-size:13px;color:var(--ink);">建議出牌排行（效率優先）</div>';
+    top.forEach((c,i)=>{
+      const d = dangerRating(c.id, handCounts, discardCounts);
+      html += '<div class="cand"><div class="rank">'+(i+1)+'</div>';
+      html += '<div class="tile sm suit-'+c.id[0]+'">'+tileFaceHTML(c.id)+'</div>';
+      html += '<div class="info"><b>打 '+tileLabel(c.id)+'</b> → '+shantenLabel(Math.max(c.shanten,0))+'，進張 '+c.ukeireCount+' 張 / '+c.ukeireTypes.length+' 種</div>';
+      html += '<span class="badge '+d.level+'">'+(d.level==='safe'?'較安全':d.level==='caution'?'普通':'風險高')+'</span></div>';
+    });
+    html += '<div style="margin:16px 0 6px;font-weight:700;font-size:13px;color:var(--ink);">手牌各張放槍風險參考</div>';
+    html += '<div class="safety-list">';
+    [...new Set(hand)].forEach(id=>{
+      const d = dangerRating(id, handCounts, discardCounts);
+      html += '<div class="safety-row"><div class="tile sm suit-'+id[0]+'">'+tileFaceHTML(id)+'</div><div class="reason">'+tileLabel(id)+'：'+d.reason+'</div><span class="badge '+d.level+'">'+(d.level==='safe'?'較安全':d.level==='caution'?'普通':'風險高')+'</span></div>';
+    });
+    html += '</div>';
+  }
+
+  body.innerHTML = html;
+  resultCard.scrollIntoView({behavior:'smooth', block:'start'});
+});
+
+buildGrids();
+render();
+</script>
+</body>
+</html>
